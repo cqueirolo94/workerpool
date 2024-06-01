@@ -1,3 +1,3 @@
-module goconc
+module workerpool
 
 go 1.22.3

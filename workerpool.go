@@ -2,66 +2,60 @@ package main
 
 import (
 	"fmt"
-	"time"
 )
 
+// Task is the interface that has to be implemented by the entities that will be processed by the Workerpool.
 type Task interface {
+	// Process is the method that the workers will execute.
 	Process()
 }
 
-type EmailTask struct {
-	Address string
-	Header  string
-	Body    string
+// Workerpool is an entity that holds a list of workers. These workers will run in the background processing tasks from a channel.
+type Workerpool interface {
+	// AddTask adds a task to the task queue to be processed later.
+	AddTask(Task)
+	// Close terminates the execution of the workers in an orderly manner.
+	Close()
 }
 
-func (e *EmailTask) Process() {
-	time.Sleep(2 * time.Second)
-	fmt.Printf("Email process - Address: %s, Header: %s, Body: %s\n", e.Address, e.Header, e.Body)
-}
-
-type ImageTask struct {
-	Size   int
-	Name   string
-	Format string
-}
-
-func (i *ImageTask) Process() {
-	time.Sleep(4 * time.Second)
-	fmt.Printf("Image process - Name: %s, Format: %s, Size: %d\n", i.Name, i.Format, i.Size)
-}
-
-type Workerpool struct {
+// workerpool implements Workerpool.
+type workerpool struct {
+	// workers contains the full list of workers that will process tasks.
 	workers []*worker
-	Tasks   chan Task
-	Stop    chan bool
-	StopAck chan bool
+	// tasks is the channel that will hold the Task's to process.
+	tasks chan Task
+	// stop is the channel that will signal the workers to stop listening for tasks and terminating the execution.
+	stop chan bool
+	// stopAck is the channel that the workers will use to acknowledge that the stop signal was received.
+	stopAck chan bool
 }
 
-func (wp *Workerpool) AddTask(task Task) {
-	wp.Tasks <- task
+func (wp *workerpool) AddTask(task Task) {
+	wp.tasks <- task
 }
 
-func (wp *Workerpool) Close() {
+func (wp *workerpool) Close() {
 	for range wp.workers {
-		wp.Stop <- true
+		wp.stop <- true
 	}
 	for range wp.workers {
-		<-wp.StopAck
+		<-wp.stopAck
 	}
 }
 
-func NewBufferedWorkerpool(n uint) *Workerpool {
+// NewBufferedWorkerpool returns a new instance of workerpool, making the Task channel buffered with size n.
+func NewBufferedWorkerpool(n uint) Workerpool {
 	tasks := make(chan Task, n)
 	return newWorkerpool(n, tasks)
 }
 
-func NewUnbufferedWorkerpool(n uint) *Workerpool {
+// NewUnbufferedWorkerpool returns a new instance of workerpool, making the Task channel unbuffered.
+func NewUnbufferedWorkerpool(n uint) Workerpool {
 	tasks := make(chan Task)
 	return newWorkerpool(n, tasks)
 }
 
-func newWorkerpool(n uint, tasks chan Task) *Workerpool {
+func newWorkerpool(n uint, tasks chan Task) Workerpool {
 	workers := make([]*worker, n)
 	stop := make(chan bool)
 	stopAck := make(chan bool)
@@ -71,7 +65,7 @@ func newWorkerpool(n uint, tasks chan Task) *Workerpool {
 		go workers[i].execute(tasks, stop, stopAck)
 	}
 
-	return &Workerpool{
+	return &workerpool{
 		workers,
 		tasks,
 		stop,

@@ -2,7 +2,30 @@ package main
 
 import (
 	"fmt"
+	"time"
 )
+
+type EmailTask struct {
+	Address string
+	Header  string
+	Body    string
+}
+
+func (e *EmailTask) Process() {
+	time.Sleep(2 * time.Second)
+	fmt.Printf("Email process - Address: %s, Header: %s, Body: %s\n", e.Address, e.Header, e.Body)
+}
+
+type ImageTask struct {
+	Size   int
+	Name   string
+	Format string
+}
+
+func (i *ImageTask) Process() {
+	time.Sleep(4 * time.Second)
+	fmt.Printf("Image process - Name: %s, Format: %s, Size: %d\n", i.Name, i.Format, i.Size)
+}
 
 func main() {
 	fmt.Println("Hello World!")
@@ -44,9 +67,9 @@ func main() {
 		},
 	}
 
-	wp := NewUnbufferedWorkerpool(7)
+	wp := NewUnbufferedWorkerpool(9)
+	defer wp.Close()
 	for _, t := range tasks {
 		wp.AddTask(t)
 	}
-	defer wp.Close()
 }
